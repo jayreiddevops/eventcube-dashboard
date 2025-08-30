@@ -58,26 +58,23 @@ with tab1:
     st.info(f"📦 Total Eventcube Orders: {len(orders)}")
     st.divider()
 
-    # --- Build and Show Table ---
-    event_ticket_data = defaultdict(lambda: defaultdict(int))
+    # --- Build Summary Table ---
+    event_totals = defaultdict(int)
 
     for order in orders:
         for item in order.get("items", []):
             ticket = item.get("ticket", {})
             event = ticket.get("event", {})
             event_title = event.get("title", "Unknown Event")
-            ticket_title = ticket.get("title", "Unnamed Ticket")
             quantity = item.get("quantity", 1)
-            event_ticket_data[event_title][ticket_title] += quantity
+            event_totals[event_title] += quantity
 
-    for event_title, ticket_counts in event_ticket_data.items():
-        st.markdown(f"### 🎉 {event_title}")
-        df = pd.DataFrame([
-            {"Ticket Tier": ticket_title, "Quantity Sold": count}
-            for ticket_title, count in ticket_counts.items()
-        ]).sort_values(by="Quantity Sold", ascending=False)
+    df_summary = pd.DataFrame([
+        {"Event Name": event, "Tickets Sold": total}
+        for event, total in event_totals.items()
+    ]).sort_values(by="Tickets Sold", ascending=False)
 
-        st.dataframe(df, use_container_width=True)
+    st.table(df_summary)
 
 # =========================
 # TAB 2: Wix Events
@@ -85,4 +82,3 @@ with tab1:
 with tab2:
     st.header("🌍 Events Int - Wix Events")
     st.warning("🔧 This tab is under construction. API integration coming soon!")
-
