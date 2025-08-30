@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 import pandas as pd
 from collections import defaultdict
+from datetime import datetime, timezone
 
 # --- Config ---
 BASE_URL = "https://socawkndr.eventcube.io/api/v1"
@@ -58,21 +59,47 @@ with tab1:
     st.info(f"📦 Total Eventcube Orders: {len(orders)}")
     st.divider()
 
-    # --- Build Summary Table ---
-    event_totals = defaultdict(int)
+    # --- Build and Show Table (Future Events Only) ---
+    event_ticket_data = defaultdict(lambda: defaultdict(int))
+    event_dates = {}
 
     for order in orders:
         for item in order.get("items", []):
             ticket = item.get("ticket", {})
             event = ticket.get("event", {})
             event_title = event.get("title", "Unknown Event")
+            ticket_title = ticket.get("title", "Unnamed Ticket")
             quantity = item.get("quantity", 1)
-            event_totals[event_title] += quantity
+            start_time = event.get("start_time")
 
+            if not start_time:
+                continue
+
+            # Convert ISO datetime to aware datetime object
+            try:
+                start_dt = datetime.fromisoformat(start_time.replace("Z", "+00:00"))
+            except ValueError:
+                continue
+
+            # Only include events in the future
+            if start_dt > datetime.now(timezone.utc):
+                event_ticket_data[event_title][ticket_title] += quantity
+                event_dates[event_title] = start_dt
+
+    # --- Aggregate Totals per Event ---
+    event_totals = {
+        event: sum(ticket_counts.values())
+        for event, ticket_counts in event_ticket_data.items()
+    }
+
+    # --- Sort Events by Date ---
+    sorted_events = sorted(event_totals.items(), key=lambda x: event_dates.get(x[0], datetime.max))
+
+    # --- Show Summary Table ---
     df_summary = pd.DataFrame([
         {"Event Name": event, "Tickets Sold": total}
-        for event, total in event_totals.items()
-    ]).sort_values(by="Tickets Sold", ascending=False)
+        for event, total in sorted_events
+    ])
 
     st.table(df_summary)
 
